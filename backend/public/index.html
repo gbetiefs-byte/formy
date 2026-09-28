@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Ce fichier statique n'est plus le point d'entrée de l'app : la route
+       "/" est rendue côté serveur par backend/src/ssr.js (voir renderHome).
+       Conservé uniquement en filet de sécurité si /index.html est demandé
+       directement (lien externe, favori obsolète...). -->
+  <meta http-equiv="refresh" content="0; url=/" />
+  <title>Formy</title>
+</head>
+<body>
+  <p>Redirection vers <a href="/">formy</a>...</p>
+</body>
+</html>

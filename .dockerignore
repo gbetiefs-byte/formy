@@ -1,0 +1,7 @@
+**/node_modules
+**/.git
+**/npm-debug.log
+backend/tests
+backend/**/*.test.js
+.env
+.github

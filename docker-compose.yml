@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-formy}
+      POSTGRES_USER: ${POSTGRES_USER:-formy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-formy}
+    volumes:
+      - formy_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-formy} -d ${POSTGRES_DB:-formy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Pas de port publié vers l'hôte : la base n'est joignable
+    # que par les autres conteneurs, via le réseau interne Compose.
+    # Le schéma est géré par des migrations versionnées (db/migrations),
+    # exécutées par l'API au démarrage — voir backend/src/migrate.js.
+
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-formy}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-formy}
+      PGDATABASE: ${POSTGRES_DB:-formy}
+      JWT_SECRET: ${JWT_SECRET:?La variable JWT_SECRET doit être définie (voir .env.example)}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@formy.fr}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      FC_CLIENT_ID: ${FC_CLIENT_ID:-}
+      FC_CLIENT_SECRET: ${FC_CLIENT_SECRET:-}
+      FC_ISSUER: ${FC_ISSUER:-}
+      FC_REDIRECT_URI: ${FC_REDIRECT_URI:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "8080:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@formy.fr}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    volumes:
+      - formy_pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  formy_db_data:
+  formy_pgadmin_data:

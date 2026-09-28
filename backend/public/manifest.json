@@ -1,0 +1,14 @@
+{
+  "name": "Formy — Démarches administratives simplifiées",
+  "short_name": "Formy",
+  "description": "Assistant numérique gratuit pour les démarches administratives françaises.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#2b6cb0",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,58 @@
+"use strict";
+
+// Lexique des sigles et termes administratifs employés dans les fiches
+// démarches. Objectif accessibilité : personne ne devrait avoir à deviner
+// ce que signifie "CAF" ou "MDPH". Affiché en infobulle sur chaque
+// occurrence dans le frontend (cf. annotateJargon dans public/app.js).
+const glossary = [
+  { terme: "CAF", definition: "Caisse d'Allocations Familiales : organisme qui verse les aides au logement, les allocations familiales, le RSA, etc." },
+  { terme: "CPAM", definition: "Caisse Primaire d'Assurance Maladie : organisme local de la Sécurité sociale qui rembourse vos soins de santé." },
+  { terme: "URSSAF", definition: "Organisme qui collecte les cotisations sociales des salariés et des indépendants." },
+  { terme: "MDPH", definition: "Maison Départementale des Personnes Handicapées : guichet unique pour toutes les démarches liées au handicap." },
+  { terme: "MSA", definition: "Mutualité Sociale Agricole : équivalent de la Sécurité sociale pour les agriculteurs et salariés agricoles." },
+  { terme: "ANTS", definition: "Agence Nationale des Titres Sécurisés : gère les démarches en ligne pour carte grise, permis de conduire, passeport, carte d'identité." },
+  { terme: "OFII", definition: "Office Français de l'Immigration et de l'Intégration : accompagne l'installation des personnes étrangères en France." },
+  { terme: "OFPRA", definition: "Office Français de Protection des Réfugiés et Apatrides : instruit les demandes d'asile." },
+  { terme: "DREETS", definition: "Direction Régionale de l'Économie, de l'Emploi, du Travail et des Solidarités : valide notamment les ruptures conventionnelles." },
+  { terme: "ASE", definition: "Aide Sociale à l'Enfance : service du département en charge de la protection des enfants." },
+  { terme: "CDAPH", definition: "Commission des Droits et de l'Autonomie des Personnes Handicapées : décide de l'attribution des aides liées au handicap (AAH, CMI...)." },
+  { terme: "RSA", definition: "Revenu de Solidarité Active : revenu minimum garanti pour les personnes sans ressources ou à faibles ressources." },
+  { terme: "AAH", definition: "Allocation Adulte Handicapé : revenu minimum garanti pour les personnes en situation de handicap." },
+  { terme: "APL", definition: "Aide Personnalisée au Logement : aide de la CAF qui réduit le montant du loyer à payer." },
+  { terme: "ALD", definition: "Affection Longue Durée : maladie chronique reconnue, dont les soins liés sont remboursés à 100%." },
+  { terme: "ASPA", definition: "Allocation de Solidarité aux Personnes Âgées (ex-minimum vieillesse) : revenu minimum garanti aux retraités aux faibles ressources." },
+  { terme: "ARE", definition: "Allocation d'aide au Retour à l'Emploi : l'allocation chômage versée par France Travail." },
+  { terme: "ACRE", definition: "Aide à la Création ou Reprise d'Entreprise : réduction des cotisations sociales la première année d'activité." },
+  { terme: "CPF", definition: "Compte Personnel de Formation : crédit en euros utilisable pour financer une formation professionnelle." },
+  { terme: "CVEC", definition: "Contribution Vie Étudiante et de Campus : frais obligatoire à payer avant toute inscription en études supérieures." },
+  { terme: "DSE", definition: "Dossier Social Étudiant : dossier unique pour demander une bourse et/ou un logement CROUS." },
+  { terme: "VAE", definition: "Validation des Acquis de l'Expérience : obtenir un diplôme grâce à son expérience professionnelle, sans repasser par la formation initiale." },
+  { terme: "PACS", definition: "Pacte Civil de Solidarité : contrat qui organise la vie commune de deux personnes, alternative au mariage." },
+  { terme: "CMG", definition: "Complément de Mode de Garde : aide de la CAF qui rembourse une partie des frais de garde d'un jeune enfant." },
+  { terme: "PAJE", definition: "Prestation d'Accueil du Jeune Enfant : ensemble d'aides de la CAF versées à la naissance d'un enfant." },
+  { terme: "PMI", definition: "Protection Maternelle et Infantile : service gratuit de suivi médical pour les femmes enceintes et les enfants jusqu'à 6 ans." },
+  { terme: "NEPH", definition: "Numéro d'Enregistrement Préfectoral Harmonisé : numéro obligatoire pour s'inscrire à l'examen du permis de conduire." },
+  { terme: "SIRET", definition: "Numéro à 14 chiffres qui identifie officiellement un établissement d'entreprise." },
+  { terme: "Kbis", definition: "Document officiel qui prouve l'existence légale d'une société (sa 'carte d'identité')." },
+  { terme: "TVA", definition: "Taxe sur la Valeur Ajoutée : impôt sur la consommation, à facturer ou non selon le régime de l'entreprise." },
+  { terme: "FICP", definition: "Fichier des Incidents de remboursement des Crédits aux Particuliers : fichier de la Banque de France qui limite l'accès au crédit en cas d'impayés." },
+  { terme: "EHPAD", definition: "Établissement d'Hébergement pour Personnes Âgées Dépendantes : maison de retraite médicalisée." },
+  { terme: "APA", definition: "Allocation Personnalisée d'Autonomie : aide du département pour financer l'accompagnement d'une personne âgée en perte d'autonomie." },
+  { terme: "C2S", definition: "Complémentaire Santé Solidaire : mutuelle gratuite ou à très faible coût pour les revenus modestes." },
+  { terme: "GIR", definition: "Groupe Iso-Ressources : échelle qui mesure le degré de dépendance d'une personne âgée (de GIR 1, le plus dépendant, à GIR 6)." },
+  { terme: "CMI", definition: "Carte Mobilité Inclusion : carte qui facilite les déplacements et le stationnement des personnes handicapées." },
+  { terme: "VLS-TS", definition: "Visa de Long Séjour valant Titre de Séjour : visa qui fait aussi office de titre de séjour la première année." },
+  { terme: "GUDA", definition: "Guichet Unique pour les Demandeurs d'Asile : lieu où s'enregistre une demande d'asile en préfecture." },
+  { terme: "SPADA", definition: "Structure de Premier Accueil des Demandeurs d'Asile : première étape avant l'enregistrement d'une demande d'asile." },
+  { terme: "FSL", definition: "Fonds de Solidarité Logement : aide départementale pour l'accès ou le maintien dans un logement." },
+  { terme: "ARIPA", definition: "Agence de Recouvrement des Impayés de Pensions Alimentaires : service public qui aide à récupérer une pension alimentaire impayée." },
+  { terme: "DPE", definition: "Diagnostic de Performance Énergétique : note (de A à G) qui évalue la consommation d'énergie d'un logement." },
+  { terme: "DPAE", definition: "Déclaration Préalable À l'Embauche : formalité obligatoire qu'un employeur doit faire avant toute embauche." },
+  { terme: "TNS", definition: "Travailleur Non Salarié : statut social des indépendants (artisans, commerçants, professions libérales)." },
+  { terme: "CFA", definition: "Centre de Formation d'Apprentis : établissement qui dispense la formation théorique d'un contrat d'apprentissage." },
+  { terme: "CNI", definition: "Carte Nationale d'Identité." },
+  { terme: "RIB", definition: "Relevé d'Identité Bancaire : document avec vos coordonnées bancaires (IBAN), demandé pour tout versement." },
+  { terme: "JAF", definition: "Juge aux Affaires Familiales : juge qui tranche les litiges liés au couple et aux enfants (garde, pension, divorce)." },
+];
+
+module.exports = glossary;

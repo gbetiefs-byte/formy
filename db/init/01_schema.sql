@@ -1,0 +1,4 @@
+-- OBSOLETE : ce fichier n'est plus utilisé.
+-- Le schema est desormais gere par des migrations versionnees dans
+-- db/migrations/, executees automatiquement par l'API au demarrage
+-- (voir backend/src/migrate.js). Conserve ici a titre d'historique.
