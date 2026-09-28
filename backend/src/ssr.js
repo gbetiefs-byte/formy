@@ -51,15 +51,15 @@ function shell({ title, description, canonicalPath, bodyHtml }) {
   <meta name="description" content="${escapeHtml(description)}" />
   <link rel="canonical" href="${base}${canonicalPath}" />
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#2b6cb0" />
+  <meta name="theme-color" content="#176b5b" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <a href="#main" class="skip-link">Aller au contenu principal</a>
   <header class="topbar">
-    <a href="/" class="brand" data-link>Formy</a>
+    <a href="/" class="brand" data-link><span class="brand-mark" aria-hidden="true">F</span>Formy</a>
     <nav id="nav" class="nav"></nav>
-    <button id="nav-toggle" class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav">☰</button>
+    <button id="nav-toggle" class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav">Menu</button>
   </header>
 
   <main id="app" class="app">${bodyHtml}</main>
@@ -82,12 +82,16 @@ async function renderHome(req, res) {
         "Formy transforme chaque démarche administrative française en checklist claire : étapes, délais réels, documents requis et pièges à éviter. Gratuit, sans distinction premium.",
       canonicalPath: "/",
       bodyHtml: `
-        <h1>Vos démarches administratives, enfin simples.</h1>
-        <p class="subtitle">Formy transforme chaque démarche officielle en checklist claire : les vraies étapes, les vrais délais, les documents requis et les pièges à éviter. Gratuit, sans distinction premium.</p>
-        <div class="toolbar">
-          <a class="btn" href="/catalogue" data-link>Voir le catalogue</a>
-          <a class="btn secondary" href="/evenements" data-link>Je vis un événement particulier</a>
-        </div>`,
+        <section class="home-hero">
+          <p class="eyebrow">VOS DÉMARCHES, EN CLAIR</p>
+          <h1>Les démarches administratives, étape par étape.</h1>
+          <p class="subtitle">Documents à préparer, délais à respecter et étapes à suivre : retrouvez l’essentiel pour avancer sereinement.</p>
+          <div class="toolbar">
+            <a class="btn" href="/catalogue" data-link>Explorer les démarches</a>
+            <a class="btn secondary" href="/evenements" data-link>Partir de ma situation</a>
+          </div>
+          <p class="home-proof"><strong>137 démarches</strong> classées par thème et événement de vie</p>
+        </section>`,
     })
   );
 }

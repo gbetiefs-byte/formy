@@ -100,19 +100,6 @@ function formatEcheance(dateStr) {
   return { text: `${date} (${label})`, urgency };
 }
 
-// Émojis simples plutôt qu'une librairie d'icônes externe (aligné avec la
-// CSP "self only" : pas de police/CDN tiers à charger).
-const ICONS = {
-  baby: "👶", school: "🏫", "graduation-cap": "🎓", briefcase: "💼", "chart-line": "📈",
-  building: "🏢", home: "🏠", heart: "❤️", "heart-pulse": "💗", "hands-helping": "🤝",
-  receipt: "🧾", "id-card": "🪪", car: "🚗", "person-cane": "🦯", dove: "🕊️",
-  globe: "🌍", "scale-balanced": "⚖️", handshake: "🤝", truck: "🚚", "rings-wedding": "💍",
-  "heart-crack": "💔", rocket: "🚀",
-};
-function icon(name) {
-  return ICONS[name] || "📄";
-}
-
 function LoadingView() {
   return el("div", { id: "main", class: "loading", "aria-busy": "true" }, [
     el("div", { class: "spinner" }),
@@ -232,9 +219,9 @@ function renderNav() {
   nav.appendChild(
     el("button", {
       class: "theme-toggle",
-      "aria-label": "Basculer le thème clair/sombre",
+      "aria-label": "Changer le thème d'affichage",
       onclick: toggleTheme,
-    }, "🌓")
+    }, "Thème")
   );
 }
 
@@ -349,7 +336,7 @@ function RegisterView() {
 
 async function CatalogueView() {
   const [categories, events, demarches] = await Promise.all([api("/categories"), api("/life-events"), api("/demarches")]);
-  const catIconBySlug = Object.fromEntries(categories.map((c) => [c.slug, c.icone]));
+  const catNameBySlug = Object.fromEntries(categories.map((c) => [c.slug, c.nom]));
 
   const grid = el("div", { class: "grid" });
   const resultCount = el("p", { class: "notice", role: "status" });
@@ -366,7 +353,8 @@ async function CatalogueView() {
     for (const d of list) {
       grid.appendChild(
         el("a", { class: "card", href: `/demarches/${d.slug}`, "data-link": "" }, [
-          el("h3", {}, [el("span", { "aria-hidden": "true" }, icon(catIconBySlug[d.category_slug]) + " "), d.titre]),
+          el("span", { class: "card-meta" }, catNameBySlug[d.category_slug] || "Démarche"),
+          el("h3", {}, d.titre),
           el("p", {}, d.description || ""),
         ])
       );
@@ -413,7 +401,8 @@ async function CatalogueView() {
         recoSection.appendChild(
           el("div", { class: "grid" }, reco.map((d) =>
             el("a", { class: "card", href: `/demarches/${d.slug}`, "data-link": "" }, [
-              el("h3", {}, [el("span", { "aria-hidden": "true" }, icon(catIconBySlug[d.category_slug]) + " "), d.titre]),
+                el("span", { class: "card-meta" }, catNameBySlug[d.category_slug] || "Démarche"),
+                el("h3", {}, d.titre),
               el("p", {}, d.description || ""),
             ])
           ))
@@ -436,7 +425,7 @@ async function EvenementsView() {
   const grid = el("div", { class: "life-events-grid" },
     events.map((evt) =>
       el("a", { class: "card", href: `/evenements/${evt.slug}`, "data-link": "" }, [
-        el("h3", {}, [el("span", { "aria-hidden": "true" }, icon(evt.icone) + " "), evt.nom]),
+        el("h3", {}, evt.nom),
         el("p", {}, evt.description || ""),
       ])
     )
@@ -459,7 +448,7 @@ async function EvenementDetailView(slug) {
   );
   return el("div", { id: "main" }, [
     el("a", { class: "breadcrumb", href: "/evenements", "data-link": "" }, "← Tous les événements de vie"),
-    el("h1", {}, event ? `${icon(event.icone)} ${event.nom}` : "Événement de vie"),
+    el("h1", {}, event ? event.nom : "Événement de vie"),
     el("p", { class: "subtitle" }, event ? event.description : ""),
     el("h2", {}, `${demarches.length} démarche(s) à effectuer`),
     grid,
@@ -533,14 +522,14 @@ async function DemarcheDetailView(slug) {
     container.appendChild(el("div", {}, [
       el("a", { class: "breadcrumb no-print", href: "/catalogue", "data-link": "" }, "← Retour au catalogue"),
       myProgress ? el("span", { class: `badge statut-${myProgress.statut}` }, STATUT_LABELS[myProgress.statut]) : null,
-      el("h1", {}, [el("span", { "aria-hidden": "true" }, icon(demarche.category_icone) + " "), demarche.titre]),
+      el("h1", {}, demarche.titre),
       el("p", { class: "subtitle" }, jargonize(demarche.description)),
       el("p", { class: "notice" }, `Catégorie : ${demarche.category_nom} — vérifié le ${new Date(demarche.verified_at).toLocaleDateString("fr-FR")}`),
       el("div", { class: "toolbar no-print" }, [
         startBtn,
         el("label", { for: "echeance-input", class: "inline-label" }, "Échéance perso. :"),
         Object.assign(echeanceInput, { id: "echeance-input" }),
-        el("button", { class: "btn secondary", type: "button", onclick: () => window.print() }, "🖨️ Imprimer"),
+        el("button", { class: "btn secondary", type: "button", onclick: () => window.print() }, "Imprimer"),
       ]),
       el("div", { class: "info-block" }, [el("h4", {}, "Délai"), el("p", {}, jargonize(demarche.delai || "Non précisé"))]),
       el("div", { class: "info-block" }, [el("h4", {}, "Durée estimée"), el("p", {}, demarche.duree_estimee || "Non précisée")]),
@@ -567,7 +556,7 @@ async function DemarcheDetailView(slug) {
 async function MesDemarchesView() {
   if (!requireAuthOrRedirect()) return el("div", { id: "main" });
   const [progress, categories] = await Promise.all([api("/progress"), api("/categories")]);
-  const catIconBySlug = Object.fromEntries(categories.map((c) => [c.slug, c.icone]));
+  const catNameBySlug = Object.fromEntries(categories.map((c) => [c.slug, c.nom]));
 
   if (progress.length === 0) {
     return el("div", { id: "main" }, [
@@ -611,8 +600,8 @@ async function MesDemarchesView() {
     ]);
   }
 
-  const alerteRetard = echeanceAlertBlock("⚠️ Échéances dépassées", echeancesEnRetard);
-  const alerteEcheances = echeanceAlertBlock("⏰ Échéances des 7 prochains jours", echeancesProches);
+  const alerteRetard = echeanceAlertBlock("Échéances dépassées", echeancesEnRetard);
+  const alerteEcheances = echeanceAlertBlock("Échéances des 7 prochains jours", echeancesProches);
 
   const grid = el("div", { class: "grid" },
     progress.map((p) => {
@@ -620,7 +609,8 @@ async function MesDemarchesView() {
       const echeanceInfo = p.date_echeance ? formatEcheance(p.date_echeance) : null;
       return el("a", { class: "card", href: `/demarches/${p.demarche_slug}`, "data-link": "" }, [
         el("span", { class: `badge statut-${p.statut}` }, STATUT_LABELS[p.statut]),
-        el("h3", {}, [el("span", { "aria-hidden": "true" }, icon(catIconBySlug[p.category_slug]) + " "), p.demarche_titre]),
+        el("span", { class: "card-meta" }, catNameBySlug[p.category_slug] || "Démarche"),
+        el("h3", {}, p.demarche_titre),
         el("div", { class: "progress-bar", role: "progressbar", "aria-valuenow": String(pct), "aria-valuemin": "0", "aria-valuemax": "100" }, [
           el("div", { class: "progress-bar-fill", style: `width:${pct}%` }),
         ]),
@@ -764,12 +754,15 @@ function CguView() {
 
 function HomeView() {
   return el("div", { id: "main" }, [
-    el("h1", {}, "Vos démarches administratives, enfin simples."),
-    el("p", { class: "subtitle" },
-      "Formy transforme chaque démarche officielle en checklist claire : les vraies étapes, les vrais délais, les documents requis et les pièges à éviter. Gratuit, sans distinction premium."),
-    el("div", { class: "toolbar" }, [
-      el("a", { class: "btn", href: "/catalogue", "data-link": "" }, "Voir le catalogue"),
-      el("a", { class: "btn secondary", href: "/evenements", "data-link": "" }, "Je vis un événement particulier"),
+    el("section", { class: "home-hero" }, [
+      el("p", { class: "eyebrow" }, "VOS DÉMARCHES, EN CLAIR"),
+      el("h1", {}, "Les démarches administratives, étape par étape."),
+      el("p", { class: "subtitle" }, "Documents à préparer, délais à respecter et étapes à suivre : retrouvez l’essentiel pour avancer sereinement."),
+      el("div", { class: "toolbar" }, [
+        el("a", { class: "btn", href: "/catalogue", "data-link": "" }, "Explorer les démarches"),
+        el("a", { class: "btn secondary", href: "/evenements", "data-link": "" }, "Partir de ma situation"),
+      ]),
+      el("p", { class: "home-proof" }, [el("strong", {}, "137 démarches"), " classées par thème et événement de vie"]),
     ]),
   ]);
 }

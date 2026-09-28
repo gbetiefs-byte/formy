@@ -29,154 +29,96 @@ statuts à faire / en cours / terminé, échéances) et des fonctionnalités RGP
 
 Prérequis : Docker et Docker Compose installés.
 
-**1. Configurer les variables d'environnement** (obligatoire — le projet
-refuse volontairement de démarrer sans un secret JWT défini, voir la section
-Bonnes pratiques) :
+Il faut avoir Git, Docker et Docker Compose installés. Si le dépôt est privé, il faut également accepter l’invitation GitHub et être connecté à son compte.
 
-```bash
-cp .env.example .env
-```
+1. Dans PowerShell, clone le dépôt. 
 
-Puis générez un secret et collez-le dans `.env` à la place de
-`JWT_SECRET=REMPLACEZ_MOI_PAR_UNE_VALEUR_ALEATOIRE_LONGUE` :
+   ```powershell
+   git clone https://github.com/gbetiefs-byte/formy.git
+   cd formy
+   ```
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+2. Crée le fichier `.env` à partir de l’exemple :
 
-(Aucun Node.js sur la machine ? `openssl rand -hex 32` fonctionne aussi.)
-Toutes les autres variables ont déjà une valeur par défaut fonctionnelle.
+   ```powershell
+   Copy-Item .env.example .env
+   ```
 
-**2. Construire et lancer les 3 conteneurs :**
+   Génère un secret JWT avec Node.js :
 
-```bash
-docker compose up -d --build
-```
+   ```powershell
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
 
-Au premier démarrage, l'API :
-1. attend que Postgres soit prêt (`healthcheck` + retries applicatifs) ;
-2. applique les migrations SQL versionnées (schéma, index de recherche,
-   RGPD, lexique) ;
-3. charge automatiquement le catalogue de démarches, catégories, événements
-   de vie et lexique (jeu de données initial) ;
-4. crée un compte administrateur (`admin@formy.fr` / `ChangeMe123!` par
-   défaut, modifiable via `.env`).
+   Copie le résultat et remplace dans `.env` la valeur de `JWT_SECRET` par ce secret. Docker Compose refuse de démarrer l’application si cette variable est absente. Node.js sert ici uniquement à générer le secret ; l’application elle-même tourne dans Docker.
 
-**URLs à tester :**
+3. Construis et démarre les services :
 
-| Service                  | URL                                |
-|---------------------------|-------------------------------------|
-| Application Formy         | http://localhost:8080              |
-| API (santé)                | http://localhost:8080/api/health   |
-| pgAdmin                    | http://localhost:8081              |
+   ```powershell
+   docker compose up -d --build
+   ```
 
-Pour se connecter à pgAdmin à la base `db` : hôte `db`, port `5432`,
-utilisateur/mot de passe définis dans `.env` (par défaut `formy` / `formy`).
+4. Ouvre l’application dans ton navigateur : **http://localhost:8080**
 
-Pour arrêter :
+| Service | Adresse |
+|---|---|
+| **Application Formy** | **http://localhost:8080** |
+| Vérification de l’API | http://localhost:8080/api/health |
+| pgAdmin | http://localhost:8081 |
 
-```bash
+Les identifiants administrateur et pgAdmin sont configurables dans `.env`. Les valeurs fournies dans `.env.example` sont prévues pour le développement : change-les avant toute utilisation réelle. Pour ouvrir la base depuis pgAdmin, utilise l’hôte `db`, le port `5432` et les identifiants PostgreSQL renseignés dans `.env`.
+
+Pour arrêter les services sans supprimer les données :
+
+```powershell
 docker compose down
 ```
 
-Pour tout arrêter **et supprimer les données** (recommencer de zéro) :
+Pour arrêter les services et supprimer aussi les données persistées :
 
-```bash
+```powershell
 docker compose down -v
 ```
 
-## Persistance des données
+## Architecture
 
-Un volume Docker nommé `formy_db_data` est monté sur
-`/var/lib/postgresql/data` dans le conteneur `db`. Cela garantit que les
-comptes utilisateurs, le catalogue de démarches et les suivis de progression
-survivent à un redémarrage ou une recréation du conteneur `db` — seule la
-suppression explicite du volume (`docker compose down -v`) efface les
-données. Un second volume (`formy_pgadmin_data`) conserve de la même façon
-la configuration de pgAdmin.
+Docker Compose démarre trois services :
 
-## Bonnes pratiques Cloud / Docker mises en œuvre
+- **`web`** : API Node.js et Express, qui sert aussi l’interface HTML, CSS et JavaScript. Le port local `8080` est redirigé vers le port `3000` du conteneur.
+- **`db`** : PostgreSQL 16. La base n’expose pas de port sur la machine hôte ; elle est accessible aux autres services sur le réseau Docker.
+- **`pgadmin`** : interface graphique d’administration de PostgreSQL, accessible sur le port local `8081`.
 
-- **Build multi-stage** dans `backend/Dockerfile` : les dépendances sont
-  installées (`npm ci`, reproductible via `package-lock.json`) dans une
-  étape `builder`, puis seule l'image de production (allégée,
-  `node:20-alpine`) est conservée avec le code et les modules déjà installés.
-- **Exécution sans les droits root** : un utilisateur système dédié `formy`
-  est créé et utilisé (`USER formy`) pour exécuter le processus Node.js.
-- **Secrets via variables d'environnement, avec échec explicite si absents** :
-  aucun mot de passe n'est en dur dans le code ou l'image ; ils sont injectés
-  par `docker-compose.yml` / `.env` (voir `.env.example`). Le conteneur `web`
-  refuse même de démarrer si `JWT_SECRET` n'est pas défini
-  (`${JWT_SECRET:?...}`), plutôt que de retomber silencieusement sur une
-  valeur par défaut non sécurisée.
-- **Base de données non exposée** : le service `db` ne publie aucun port sur
-  l'hôte, il n'est joignable que par les autres conteneurs via le réseau
-  interne créé automatiquement par Compose.
-- **Healthchecks** sur `db` et `web`, utilisés par `depends_on: condition:
-  service_healthy` pour séquencer proprement le démarrage.
-- **Service bonus pertinent** : pgAdmin (administration de la base).
+Le Dockerfile utilise une construction multi-stage basée sur `node:20-alpine` et lance le service web avec un utilisateur non privilégié. Des contrôles de santé vérifient la disponibilité de PostgreSQL et de l’API.
 
-## Initialisation automatique
+## Données et initialisation
 
-- Le **schéma** de la base (tables, contraintes, index, extension
-  `pg_trgm`) est géré par des **migrations SQL versionnées**
-  (`db/migrations/001_*.sql` à `004_*.sql`), exécutées automatiquement par
-  l'API au démarrage (`backend/src/migrate.js`) et trackées dans une table
-  `schema_migrations` — une mise à jour du code peut ainsi faire évoluer le
-  schéma d'une instance déjà déployée, pas seulement d'une base neuve.
-- Le **jeu de données initial** (catégories, événements de vie, démarches,
-  étapes, lexique) et le **compte administrateur** sont créés par un script
-  applicatif au démarrage de l'API (`backend/src/seed/seed.js`), de façon
-  idempotente (upsert) : il se resynchronise à chaque redémarrage sans
-  dupliquer les données ni écraser la progression des utilisateurs.
+Le volume Docker `formy_db_data` conserve la base PostgreSQL entre les arrêts ou les recréations de conteneurs. Le volume `formy_pgadmin_data` conserve la configuration de pgAdmin. Seule la commande `docker compose down -v` supprime ces volumes.
 
-## Schéma d'architecture Cloud (production)
+Les migrations SQL versionnées se trouvent dans `db/migrations/` et sont appliquées au démarrage de l’API. Les données de référence et le compte administrateur sont initialisés automatiquement. Les démarches et le lexique sont synchronisés au démarrage.
 
-En production, cette architecture serait déployée sur un Cloud public de la
-façon suivante :
+## Sécurité et configuration
+
+Les paramètres sont transmis aux conteneurs par variables d’environnement définies dans `.env`. Le secret JWT est obligatoire. En revanche, les mots de passe d’exemple ne sont pas adaptés à un déploiement réel : il faut les remplacer et ne pas publier le fichier `.env`.
+
+FranceConnect est facultatif. Pour l’activer, il faut renseigner dans `.env` les paramètres du client (`FC_CLIENT_ID`, `FC_CLIENT_SECRET`, `FC_ISSUER` et `FC_REDIRECT_URI`).
+
+## Évolution possible vers le Cloud
+
+Pour un déploiement en production, je remplacerais la base locale par un PostgreSQL managé, je stockerais les secrets dans le gestionnaire du fournisseur Cloud et je placerais un répartiteur HTTPS devant plusieurs instances de l’application.
 
 ```mermaid
 flowchart LR
-    U[Utilisateurs] -->|HTTPS| LB[Load Balancer<br/>ALB / Application Gateway / Cloud Load Balancing]
-    LB --> WEB1[Conteneur web<br/>ECS Fargate / Container Apps / Cloud Run]
-    LB --> WEB2[Conteneur web<br/>instance additionnelle, auto-scaling]
-    WEB1 --> DB[(Base de données managée<br/>Amazon RDS / Azure Database for PostgreSQL / Cloud SQL)]
+    U[Utilisateurs] -->|HTTPS| LB[Répartiteur de charge]
+    LB --> WEB1[Application Formy]
+    LB --> WEB2[Instance supplémentaire]
+    WEB1 --> DB[(PostgreSQL managé)]
     WEB2 --> DB
-    WEB1 -. logs/metrics .-> MON[Monitoring & logs<br/>CloudWatch / Azure Monitor / Cloud Logging]
-    WEB2 -. logs/metrics .-> MON
+    WEB1 -. journaux et métriques .-> MON[Supervision Cloud]
+    WEB2 -. journaux et métriques .-> MON
 ```
 
-- **Accès utilisateur** : un Load Balancer (AWS ALB, Azure Application
-  Gateway ou GCP Cloud Load Balancing) termine le TLS et répartit le trafic
-  HTTPS vers les instances du service `web`.
-- **Hébergement des conteneurs** : le service `web` est déployé sur un
-  service de conteneurs managé (AWS ECS Fargate, Azure Container Apps ou
-  Google Cloud Run), avec auto-scaling horizontal selon la charge — il n'y a
-  alors plus de conteneur `db` local, ni de secrets en clair : ceux-ci
-  seraient stockés dans un gestionnaire de secrets managé (AWS Secrets
-  Manager, Azure Key Vault, GCP Secret Manager).
-- **Base de données** : remplacée par un service managé (Amazon RDS pour
-  PostgreSQL, Azure Database for PostgreSQL ou Google Cloud SQL), avec
-  sauvegardes automatiques et haute disponibilité multi-zone.
+Cette architecture peut s’appuyer, par exemple, sur AWS, Azure ou Google Cloud : service de conteneurs managé, base PostgreSQL managée, gestionnaire de secrets et outil de supervision.
 
-## Conformité au cahier des charges
+## Crédits
 
-| Exigence du cahier des charges | Statut |
-|---|---|
-| 2 conteneurs communicants minimum (API + BDD) | ✅ `web` (Express) + `db` (PostgreSQL) |
-| Dockerfile : image de base légère | ✅ `node:20-alpine` |
-| Dockerfile : dépendances installées | ✅ `npm ci` |
-| Dockerfile : port exposé | ✅ `EXPOSE 3000` |
-| Dockerfile : build multi-stage | ✅ étapes `builder` / `production` |
-| Compose : mapping de ports du service web | ✅ `8080:3000` |
-| Compose : variables d'environnement sécurisées pour la BDD | ✅ via `.env` |
-| Init automatique : compte admin + jeu de données | ✅ `backend/src/seed/seed.js` |
-| Persistance : volume Docker pour la BDD | ✅ `formy_db_data` |
-| Réseau : BDD non exposée sur l'hôte | ✅ `db` sans `ports:` |
-| README : scénario + commandes exactes | ✅ ce document |
-| README : justification de la persistance | ✅ section dédiée ci-dessus |
-| README : bonnes pratiques Cloud/Docker | ✅ section dédiée ci-dessus |
-| README : schéma d'architecture Cloud | ✅ diagramme Mermaid ci-dessus |
-| Bonus : build multi-stage | ✅ |
-| Bonus : 3ᵉ service pertinent | ✅ (2 fournis : Mailhog + pgAdmin) |
-| Bonus : services cloud managés dans le schéma | ✅ RDS/Cloud SQL, ALB, Secrets Manager |
+**Projet réalisé par Fresnel Gbetie, avec l’accompagnement d’Axel Houenou.**
