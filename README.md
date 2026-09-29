@@ -92,9 +92,24 @@ Le Dockerfile utilise une construction multi-stage basée sur `node:20-alpine` e
 
 ## Données et initialisation
 
-Le volume Docker `formy_db_data` conserve la base PostgreSQL entre les arrêts ou les recréations de conteneurs. Le volume `formy_pgadmin_data` conserve la configuration de pgAdmin. Seule la commande `docker compose down -v` supprime ces volumes.
+### Persistance
+
+Le système de fichiers d’un conteneur est éphémère : sans volume, les comptes, les checklists et la progression des utilisateurs disparaîtraient à chaque recréation du conteneur `db` (mise à jour d’image, `docker compose up --build`, etc.). C’est pourquoi deux volumes nommés ont été créés :
+
+- **`formy_db_data`**, monté sur `/var/lib/postgresql/data` : conserve toutes les données PostgreSQL entre les arrêts ou les recréations de conteneurs.
+- **`formy_pgadmin_data`**, monté sur `/var/lib/pgadmin` : conserve la configuration de pgAdmin (serveurs enregistrés, préférences).
+
+Seule la commande `docker compose down -v` supprime ces volumes.
 
 Les migrations SQL versionnées se trouvent dans `db/migrations/` et sont appliquées au démarrage de l’API. Les données de référence et le compte administrateur sont initialisés automatiquement. Les démarches et le lexique sont synchronisés au démarrage.
+
+## Bonnes pratiques Cloud / Docker implémentées
+
+- **Build multi-stage** : un stage `builder` installe les dépendances (`npm ci --omit=dev`), puis l’image finale `node:20-alpine` n’embarque que le nécessaire, ce qui la rend plus légère.
+- **Exécution sans droits root** : le conteneur `web` tourne avec un utilisateur dédié `formy`.
+- **Secrets et configuration par variables d’environnement** : mots de passe, `JWT_SECRET` et paramètres sont lus depuis `.env` (non versionné) ; Compose refuse de démarrer si `JWT_SECRET` est absent.
+- **Healthchecks et ordre de démarrage** : `web` attend que `db` soit sain (`depends_on: condition: service_healthy`).
+- **Base non exposée** : PostgreSQL n’a aucun port publié sur l’hôte, seul le réseau interne Docker y accède.
 
 ## Sécurité et configuration
 
@@ -108,16 +123,20 @@ Pour un déploiement en production, je remplacerais la base locale par un Postgr
 
 ```mermaid
 flowchart LR
-    U[Utilisateurs] -->|HTTPS| LB[Répartiteur de charge]
-    LB --> WEB1[Application Formy]
-    LB --> WEB2[Instance supplémentaire]
-    WEB1 --> DB[(PostgreSQL managé)]
-    WEB2 --> DB
-    WEB1 -. journaux et métriques .-> MON[Supervision Cloud]
-    WEB2 -. journaux et métriques .-> MON
+    U[Utilisateurs] -->|HTTPS| LB[Load Balancer<br/>AWS ALB / Azure App Gateway / GCP HTTPS LB]
+    subgraph CLOUD[Cloud public - réseau privé]
+        LB --> C1[Service d'hébergement de conteneurs<br/>AWS ECS Fargate / Azure Container Apps / GCP Cloud Run<br/>Conteneur Formy - instance 1]
+        LB --> C2[Conteneur Formy - instance 2]
+        C1 --> DB[(Base de données managée<br/>PostgreSQL : AWS RDS / Azure DB / Cloud SQL)]
+        C2 --> DB
+        SEC[Gestionnaire de secrets] -.-> C1
+        SEC -.-> C2
+    end
+    C1 -. logs et métriques .-> MON[Supervision Cloud]
+    C2 -. logs et métriques .-> MON
 ```
 
-Cette architecture peut s’appuyer, par exemple, sur AWS, Azure ou Google Cloud : service de conteneurs managé, base PostgreSQL managée, gestionnaire de secrets et outil de supervision.
+Cette architecture peut s’appuyer sur AWS, Azure ou Google Cloud : le Load Balancer reçoit le trafic HTTPS, le service de conteneurs managé exécute l’image Docker `web` (plusieurs instances), et la base PostgreSQL managée remplace le conteneur `db` local avec sauvegardes automatiques.
 
 ## Crédits
 
