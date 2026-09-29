@@ -31,34 +31,26 @@ Prérequis : Docker et Docker Compose installés.
 
 Il faut avoir Git, Docker et Docker Compose installés. Si le dépôt est privé, il faut également accepter l’invitation GitHub et être connecté à son compte.
 
-1. Dans PowerShell, clone le dépôt. 
+**Aucune configuration n’est nécessaire** : le projet démarre avec des valeurs de démonstration, sans fichier `.env`.
 
-   ```powershell
+1. Clone le dépôt :
+
+   ```bash
    git clone https://github.com/gbetiefs-byte/formy.git
    cd formy
    ```
 
-2. Crée le fichier `.env` à partir de l’exemple :
+2. Construis et démarre les services :
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   Génère un secret JWT avec Node.js :
-
-   ```powershell
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-
-   Copie le résultat et remplace dans `.env` la valeur de `JWT_SECRET` par ce secret. Docker Compose refuse de démarrer l’application si cette variable est absente. Node.js sert ici uniquement à générer le secret ; l’application elle-même tourne dans Docker.
-
-3. Construis et démarre les services :
-
-   ```powershell
+   ```bash
    docker compose up -d --build
    ```
 
-4. Ouvre l’application dans ton navigateur : **http://localhost:8080**
+3. Ouvre l’application dans ton navigateur : **http://localhost:8080** (attends environ 30 secondes au premier lancement, le temps de l’initialisation de la base).
+
+Compte administrateur de démonstration : `admin@formy.fr` / `ChangeMe123!`.
+
+Pour une utilisation réelle, copie `.env.example` en `.env` et remplace les secrets (`JWT_SECRET`, mots de passe) : Compose les lit automatiquement.
 
 | Service | Adresse |
 |---|---|
@@ -107,13 +99,13 @@ Les migrations SQL versionnées se trouvent dans `db/migrations/` et sont appliq
 
 - **Build multi-stage** : un stage `builder` installe les dépendances (`npm ci --omit=dev`), puis l’image finale `node:20-alpine` n’embarque que le nécessaire, ce qui la rend plus légère.
 - **Exécution sans droits root** : le conteneur `web` tourne avec un utilisateur dédié `formy`.
-- **Secrets et configuration par variables d’environnement** : mots de passe, `JWT_SECRET` et paramètres sont lus depuis `.env` (non versionné) ; Compose refuse de démarrer si `JWT_SECRET` est absent.
+- **Secrets et configuration par variables d’environnement** : mots de passe, `JWT_SECRET` et paramètres sont lus depuis `.env` (non versionné), avec des valeurs de démonstration par défaut pour que le projet démarre sans configuration.
 - **Healthchecks et ordre de démarrage** : `web` attend que `db` soit sain (`depends_on: condition: service_healthy`).
 - **Base non exposée** : PostgreSQL n’a aucun port publié sur l’hôte, seul le réseau interne Docker y accède.
 
 ## Sécurité et configuration
 
-Les paramètres sont transmis aux conteneurs par variables d’environnement définies dans `.env`. Le secret JWT est obligatoire. En revanche, les mots de passe d’exemple ne sont pas adaptés à un déploiement réel : il faut les remplacer et ne pas publier le fichier `.env`.
+Les paramètres sont transmis aux conteneurs par variables d’environnement définies dans `.env`. Le secret JWT et les mots de passe fournis par défaut sont des valeurs de démonstration : ils ne sont pas adaptés à un déploiement réel, il faut les remplacer dans `.env` et ne pas publier ce fichier.
 
 FranceConnect est facultatif. Pour l’activer, il faut renseigner dans `.env` les paramètres du client (`FC_CLIENT_ID`, `FC_CLIENT_SECRET`, `FC_ISSUER` et `FC_REDIRECT_URI`).
 

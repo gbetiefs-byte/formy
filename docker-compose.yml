@@ -31,7 +31,9 @@ services:
       PGUSER: ${POSTGRES_USER:-formy}
       PGPASSWORD: ${POSTGRES_PASSWORD:-formy}
       PGDATABASE: ${POSTGRES_DB:-formy}
-      JWT_SECRET: ${JWT_SECRET:?La variable JWT_SECRET doit être définie (voir .env.example)}
+      # Valeur de DÉMONSTRATION pour que le projet démarre sans fichier .env.
+      # En production : définir JWT_SECRET dans .env (voir .env.example).
+      JWT_SECRET: ${JWT_SECRET:-formy-demo-secret-a-remplacer-en-production-0123456789abcdef}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@formy.fr}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
