@@ -20,6 +20,7 @@ const profileRoutes = require("./routes/profile");
 const catalogueRoutes = require("./routes/catalogue");
 const progressRoutes = require("./routes/progress");
 const adminRoutes = require("./routes/admin");
+const { requireCompleteProfile, ssrGate } = require("./middleware/profile");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -60,20 +61,27 @@ app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
+// Parcours imposé : inscription -> profil personnalisé -> accès aux ressources.
+// Le catalogue et le suivi ne sont servis qu'aux comptes au profil complet.
+app.use(["/api/categories", "/api/life-events", "/api/demarches"], requireCompleteProfile);
 app.use("/api", catalogueRoutes);
-app.use("/api/progress", progressRoutes);
+app.use("/api/progress", requireCompleteProfile, progressRoutes);
 app.use("/api/admin", adminRoutes);
 
-// --- Pages publiques rendues côté serveur (SEO) ---
-app.get("/", ssr.renderHome);
-app.get("/catalogue", ssr.renderCatalogue);
-app.get("/evenements", ssr.renderEvenements);
-app.get("/evenements/:slug", ssr.renderEvenementDetail);
-app.get("/demarches/:slug", ssr.renderDemarcheDetail);
+// --- Pages rendues côté serveur, réservées aux comptes au profil complet ---
+// Sinon la requête tombe sur la coquille SPA ci-dessous, et le routeur client
+// redirige vers l'inscription ou la personnalisation du profil.
+app.get("/", ssrGate, ssr.renderHome);
+app.get("/catalogue", ssrGate, ssr.renderCatalogue);
+app.get("/evenements", ssrGate, ssr.renderEvenements);
+app.get("/evenements/:slug", ssrGate, ssr.renderEvenementDetail);
+app.get("/demarches/:slug", ssrGate, ssr.renderDemarcheDetail);
 app.get("/sitemap.xml", ssr.sitemap);
 app.get("/robots.txt", ssr.robots);
 
-app.use(express.static(frontendDir));
+// index:false : sans cela, "/" servirait public/index.html (redirection vers
+// "/") au lieu de la coquille SPA quand ssrGate laisse passer la requête.
+app.use(express.static(frontendDir, { index: false }));
 
 // Pages nécessitant une connexion / utilitaires : coquille SPA générique,
 // le routeur client (app.js) affiche le bon contenu.

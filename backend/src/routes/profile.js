@@ -3,6 +3,7 @@
 const express = require("express");
 const { pool } = require("../db");
 const { requireAuth, clearAuthCookies } = require("../middleware/auth");
+const { isProfileComplete } = require("../lib/profile");
 
 const router = express.Router();
 
@@ -24,6 +25,11 @@ router.put("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Aucun champ à mettre à jour." });
   }
 
+  const age = req.body.age;
+  if ("age" in req.body && age !== null && age !== "" && (!Number.isInteger(Number(age)) || Number(age) < 0 || Number(age) > 120)) {
+    return res.status(400).json({ error: "L'âge doit être un nombre entier entre 0 et 120." });
+  }
+
   values.push(req.user.id);
   const { rows } = await pool.query(
     `UPDATE users SET ${updates.join(", ")} WHERE id = $${i}
@@ -31,7 +37,7 @@ router.put("/", requireAuth, async (req, res) => {
     values
   );
 
-  res.json(rows[0]);
+  res.json({ ...rows[0], profile_complete: isProfileComplete(rows[0]) });
 });
 
 // Droit à la portabilité (RGPD) : export de toutes les données personnelles

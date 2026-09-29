@@ -7,6 +7,7 @@ const { pool } = require("../db");
 const { isValidEmail, isValidPassword } = require("../lib/validation");
 const { signAccessToken, generateRefreshToken, hashRefreshToken } = require("../lib/tokens");
 const { requireAuth, setAuthCookies, clearAuthCookies, REFRESH_COOKIE } = require("../middleware/auth");
+const { isProfileComplete } = require("../lib/profile");
 const franceconnect = require("./franceconnect");
 
 const router = express.Router();
@@ -124,7 +125,7 @@ router.get("/me", requireAuth, async (req, res) => {
     [req.user.id]
   );
   if (!rows[0]) return res.status(404).json({ error: "Utilisateur introuvable." });
-  res.json(rows[0]);
+  res.json({ ...rows[0], profile_complete: isProfileComplete(rows[0]) });
 });
 
 router.use("/franceconnect", franceconnect);

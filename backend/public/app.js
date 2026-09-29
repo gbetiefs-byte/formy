@@ -176,12 +176,10 @@ function requireAuthOrRedirect() {
 
 async function refreshCurrentUser() {
   try {
-    // Requête directe (sans passer par api()) : un visiteur anonyme reçoit
-    // normalement un 401 ici, ce n'est pas une erreur de session à tenter
-    // de rafraîchir — juste l'état "non connecté".
-    const res = await fetch("/api/auth/me", { credentials: "include" });
-    if (!res.ok) throw new Error("not authenticated");
-    state.user = await res.json();
+    // api() renouvelle la session via le refresh token si l'access token
+    // (15 min) a expiré : indispensable maintenant que l'accès à toute
+    // l'application dépend de cet état. Un visiteur anonyme finit en erreur.
+    state.user = await api("/auth/me");
   } catch (_) {
     state.user = null;
   }
@@ -195,12 +193,16 @@ function renderNav() {
   const path = location.pathname;
   const link = (href, label) => el("a", { href, "data-link": "", "aria-current": path === href ? "page" : null }, label);
 
-  nav.appendChild(link("/catalogue", "Catalogue"));
-  nav.appendChild(link("/evenements", "Événements de vie"));
+  // Tant que le profil n'est pas complété, les rubriques de l'application
+  // restent masquées : parcours inscription -> profil -> application.
+  if (state.user && state.user.profile_complete) {
+    nav.appendChild(link("/catalogue", "Catalogue"));
+    nav.appendChild(link("/evenements", "Événements de vie"));
+    nav.appendChild(link("/mes-demarches", "Mes démarches"));
+  }
 
   if (state.user) {
-    nav.appendChild(link("/mes-demarches", "Mes démarches"));
-    nav.appendChild(link("/profil", `Profil (${state.user.prenom || state.user.email})`));
+    if (state.user.profile_complete) nav.appendChild(link("/profil", `Profil (${state.user.prenom || state.user.email})`));
     if (state.user.role === "admin") nav.appendChild(link("/admin", "Admin"));
     nav.appendChild(
       el("button", {
@@ -327,6 +329,7 @@ function RegisterView() {
   ]);
 
   return el("div", { id: "main" }, [
+    el("p", { class: "eyebrow" }, "ÉTAPE 1 SUR 2"),
     el("h1", {}, "Créer un compte"),
     el("p", { class: "subtitle" }, "100% gratuit, aucune donnée revendue."),
     form,
@@ -628,6 +631,10 @@ async function MesDemarchesView() {
 async function ProfilView() {
   if (!requireAuthOrRedirect()) return el("div", { id: "main" });
   const user = await api("/auth/me");
+  // Première connexion : le profil est une étape obligatoire (onboarding).
+  const onboarding = !user.profile_complete;
+  const requiredAttr = onboarding ? "true" : null;
+  const emptyOption = () => el("option", { value: "" }, onboarding ? "Choisir..." : "Non précisé");
 
   const errorBox = el("p", { class: "error", role: "alert" });
   const notice = el("p", { class: "notice", role: "status" });
@@ -647,6 +654,10 @@ async function ProfilView() {
           statut: form.statut.value,
         };
         state.user = await api("/profile", { method: "PUT", body: JSON.stringify(payload) });
+        if (onboarding && state.user.profile_complete) {
+          navigate("/");
+          return;
+        }
         notice.textContent = "Profil mis à jour.";
       } catch (err) {
         errorBox.textContent = err.message;
@@ -654,31 +665,31 @@ async function ProfilView() {
     },
   }, [
     el("label", { for: "p-prenom" }, "Prénom"),
-    el("input", { id: "p-prenom", name: "prenom", value: user.prenom || "" }),
+    el("input", { id: "p-prenom", name: "prenom", value: user.prenom || "", required: requiredAttr }),
     el("label", { for: "p-age" }, "Âge"),
-    el("input", { id: "p-age", name: "age", type: "number", value: user.age || "" }),
+    el("input", { id: "p-age", name: "age", type: "number", min: "0", max: "120", value: user.age ?? "", required: requiredAttr }),
     el("label", { for: "p-situation" }, "Situation familiale"),
-    el("select", { id: "p-situation", name: "situation_familiale" }, [
-      el("option", { value: "" }, "Non précisé"),
+    el("select", { id: "p-situation", name: "situation_familiale", required: requiredAttr }, [
+      emptyOption(),
       ...["celibataire", "en_couple", "marie", "pacse", "divorce", "veuf"].map((v) =>
         el("option", { value: v, selected: user.situation_familiale === v ? "true" : null }, v.replace("_", " "))
       ),
     ]),
     el("label", { for: "p-statut" }, "Statut"),
-    el("select", { id: "p-statut", name: "statut" }, [
-      el("option", { value: "" }, "Non précisé"),
+    el("select", { id: "p-statut", name: "statut", required: requiredAttr }, [
+      emptyOption(),
       ...["salarie", "independant", "etudiant", "demandeur_emploi", "retraite"].map((v) =>
         el("option", { value: v, selected: user.statut === v ? "true" : null }, v.replace("_", " "))
       ),
     ]),
     el("label", { for: "p-zone" }, "Zone géographique"),
-    el("input", { id: "p-zone", name: "zone_geographique", value: user.zone_geographique || "" }),
+    el("input", { id: "p-zone", name: "zone_geographique", value: user.zone_geographique || "", placeholder: "Ville ou code postal", required: requiredAttr }),
     el("label", { for: "p-revenus" }, "Tranche de revenus"),
-    el("select", { id: "p-revenus", name: "revenus" }, [
-      el("option", { value: "" }, "Non précisé"),
+    el("select", { id: "p-revenus", name: "revenus", required: requiredAttr }, [
+      emptyOption(),
       ...["modeste", "moyen", "confortable"].map((v) => el("option", { value: v, selected: user.revenus === v ? "true" : null }, v)),
     ]),
-    el("button", { class: "btn", type: "submit" }, "Enregistrer"),
+    el("button", { class: "btn", type: "submit" }, onboarding ? "Terminer et accéder à Formy" : "Enregistrer"),
   ]);
 
   const dangerZone = el("div", { class: "info-block account-data" }, [
@@ -707,6 +718,16 @@ async function ProfilView() {
       }, "Supprimer mon compte"),
     ]),
   ]);
+
+  if (onboarding) {
+    return el("div", { id: "main" }, [
+      el("p", { class: "eyebrow" }, "ÉTAPE 2 SUR 2"),
+      el("h1", {}, "Personnalisez votre profil"),
+      el("p", { class: "subtitle" }, "Dernière étape avant d'accéder à Formy : ces informations nous permettent de vous recommander les démarches adaptées à votre situation. Tous les champs sont obligatoires."),
+      form,
+      errorBox,
+    ]);
+  }
 
   return el("div", { id: "main" }, [
     el("h1", {}, "Mon profil"),
@@ -753,15 +774,24 @@ function CguView() {
 // ---------- Routing ----------
 
 function HomeView() {
+  // Visiteur : accueil limité à l'inscription / connexion. Les ressources
+  // (catalogue, événements de vie...) ne sont accessibles qu'après inscription
+  // et personnalisation du profil.
+  const actions = state.user
+    ? [
+        el("a", { class: "btn", href: "/catalogue", "data-link": "" }, "Explorer les démarches"),
+        el("a", { class: "btn secondary", href: "/evenements", "data-link": "" }, "Partir de ma situation"),
+      ]
+    : [
+        el("a", { class: "btn", href: "/register", "data-link": "" }, "Créer mon compte gratuitement"),
+        el("a", { class: "btn secondary", href: "/login", "data-link": "" }, "J'ai déjà un compte"),
+      ];
   return el("div", { id: "main" }, [
     el("section", { class: "home-hero" }, [
       el("p", { class: "eyebrow" }, "VOS DÉMARCHES, EN CLAIR"),
       el("h1", {}, "Les démarches administratives, étape par étape."),
       el("p", { class: "subtitle" }, "Documents à préparer, délais à respecter et étapes à suivre : retrouvez l’essentiel pour avancer sereinement."),
-      el("div", { class: "toolbar" }, [
-        el("a", { class: "btn", href: "/catalogue", "data-link": "" }, "Explorer les démarches"),
-        el("a", { class: "btn secondary", href: "/evenements", "data-link": "" }, "Partir de ma situation"),
-      ]),
+      el("div", { class: "toolbar" }, actions),
       el("p", { class: "home-proof" }, [el("strong", {}, "137 démarches"), " classées par thème et événement de vie"]),
     ]),
   ]);
@@ -781,11 +811,28 @@ async function router() {
   isFirstRouterCall = false;
 
   try {
+    // Parcours imposé : inscription -> personnalisation du profil -> application.
+    const first = segments[0];
+    const PUBLIC_ROUTES = ["login", "register", "confidentialite", "cgu"];
+    if (!state.user) {
+      if (segments.length > 0 && !PUBLIC_ROUTES.includes(first)) {
+        navigate("/register", { replace: true });
+        return;
+      }
+    } else if (!state.user.profile_complete) {
+      if (first !== "profil" && first !== "confidentialite" && first !== "cgu") {
+        navigate("/profil", { replace: true });
+        return;
+      }
+    } else if (first === "login" || first === "register") {
+      navigate("/", { replace: true });
+      return;
+    }
+
     if (segments.length === 0) {
-      // Au tout premier chargement de "/", le HTML est déjà rendu côté
-      // serveur (SSR) : inutile de le regénérer. Sur une navigation client
-      // ultérieure vers "/", on le rend normalement.
-      if (!wasFirstCall) render(HomeView());
+      // Le HTML de "/" est déjà rendu côté serveur (SSR) uniquement pour les
+      // comptes au profil complet ; sinon la page est vide et on la rend ici.
+      if (!wasFirstCall || !app.firstElementChild) render(HomeView());
       return;
     }
     if (segments[0] === "login") render(LoginView());

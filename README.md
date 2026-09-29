@@ -27,7 +27,9 @@ statuts à faire / en cours / terminé, échéances) et des fonctionnalités RGP
 
 ## Les rubriques de l’application
 
-La barre de navigation donne accès aux rubriques suivantes :
+**Parcours imposé** : un visiteur doit d’abord **créer un compte** (étape 1), puis **personnaliser son profil** (étape 2 : prénom, âge, situation familiale, revenus, zone géographique, statut : tous obligatoires). Tant que ces deux étapes ne sont pas terminées, aucune ressource de l’application n’est accessible, ni dans l’interface ni via l’API (réponse `401` sans compte, `403` avec un profil incomplet). Le compte administrateur de démonstration est dispensé de l’étape 2.
+
+Une fois le parcours terminé, la barre de navigation donne accès aux rubriques suivantes :
 
 | Rubrique | À quoi elle sert |
 |---|---|
