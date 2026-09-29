@@ -25,6 +25,21 @@ déménagement, majorité...), le suivi de progression (checklist par étape,
 statuts à faire / en cours / terminé, échéances) et des fonctionnalités RGPD
 (export et suppression de compte).
 
+## Les rubriques de l’application
+
+La barre de navigation donne accès aux rubriques suivantes :
+
+| Rubrique | À quoi elle sert |
+|---|---|
+| **Catalogue** | Liste des 137 démarches administratives, avec recherche et filtre par catégorie (CAF, impôts, France Travail, CPAM, préfecture...). Chaque fiche détaille les étapes, les délais, les documents requis et les pièges à éviter. |
+| **Événements de vie** | Point d’entrée par situation (naissance, perte d’emploi, déménagement, majorité...) : Formy regroupe toutes les démarches à faire pour l’événement choisi. |
+| **Mes démarches** | Tableau de bord personnel (compte requis) : démarches suivies, checklist étape par étape, statut (à faire / en cours / terminé), barre de progression et dates d’échéance. |
+| **Profil** | Informations personnelles (prénom, âge, situation familiale, statut, zone) utilisées pour recommander des démarches adaptées. Permet aussi, conformément au RGPD, d’exporter ses données ou de supprimer son compte. |
+| **Déconnexion** | Ferme la session de l’utilisateur connecté. |
+| **Thème** | Bascule entre l’affichage clair et sombre ; le choix est mémorisé. |
+
+Les visiteurs non connectés voient à la place **Connexion** et **Créer un compte**. Le compte administrateur voit en plus une rubrique **Admin**.
+
 ## Lancer le projet
 
 Prérequis : Docker et Docker Compose installés.
